@@ -143,10 +143,15 @@ function loadState() {
   let s;
   try { s = JSON.parse(localStorage.getItem(STORE_KEY)); } catch { s = null; }
   if (!s) {
-    s = { habitDefs: DEFAULT_HABITS.slice(), days: {}, bestStreak: 0, weekChallenge: weekIndex() };
+    s = { habitDefs: DEFAULT_HABITS.slice(), days: {}, bestStreak: 0, weekChallenge: weekIndex(), reminders: null };
   }
   s.days = s.days || {};
   s.habitDefs = s.habitDefs || DEFAULT_HABITS.slice();
+  if (!s.reminders) s.reminders = [
+    { id: "r1", time: "08:00", label: "Routine du matin ☀️", on: true },
+    { id: "r2", time: "13:00", label: "Bouge un peu + bois de l'eau 💧", on: true },
+    { id: "r3", time: "21:30", label: "Routine du soir & journal 🌙", on: true },
+  ];
   if (!s.days[todayKey()]) s.days[todayKey()] = freshDay();
   return s;
 }
@@ -521,6 +526,7 @@ function renderProgres() {
     bar.innerHTML = `<div class="fill" style="height:${m ? m * 18 : 6}px">${m ? emo : ""}</div><span class="clbl">${d.getDate()}</span>`;
     mc.appendChild(bar);
   });
+  if (typeof renderPhotos === "function") renderPhotos();
 }
 $("#resetBtn").addEventListener("click", () => {
   if (confirm("Effacer toutes tes données GlowUp ? Cette action est irréversible.")) {
@@ -550,7 +556,179 @@ function renderAll() {
   el && el.addEventListener("input", () => { $("#journalSaved").textContent = ""; });
 });
 
+/* ============================================================
+   RAPPELS / NOTIFICATIONS
+   ============================================================ */
+
+function notifPermission() { return ("Notification" in window) ? Notification.permission : "unsupported"; }
+
+function updateNotifState() {
+  const el = $("#notifState");
+  const p = notifPermission();
+  const btn = $("#enableNotifBtn");
+  if (p === "unsupported") { el.textContent = "Ton navigateur ne supporte pas les notifications."; btn.style.display = "none"; }
+  else if (p === "granted") { el.textContent = "✅ Notifications activées. Tes rappels se déclencheront aux heures choisies."; btn.style.display = "none"; }
+  else if (p === "denied") { el.textContent = "❌ Notifications bloquées. Autorise-les dans les réglages du navigateur."; btn.style.display = "block"; }
+  else { el.textContent = "Active les notifications pour recevoir tes rappels quotidiens."; btn.style.display = "block"; }
+}
+
+function fireNotif(title, body) {
+  if (notifPermission() !== "granted") { toast("🔔 " + body); return; }
+  try {
+    if (navigator.serviceWorker && navigator.serviceWorker.ready) {
+      navigator.serviceWorker.ready.then(reg => reg.showNotification(title, { body, vibrate: [80, 40, 80] })).catch(() => new Notification(title, { body }));
+    } else { new Notification(title, { body }); }
+  } catch { toast("🔔 " + body); }
+}
+
+let reminderTimers = [];
+function scheduleReminders() {
+  reminderTimers.forEach(t => clearTimeout(t));
+  reminderTimers = [];
+  if (notifPermission() !== "granted") return;
+  state.reminders.filter(r => r.on).forEach(r => {
+    const [h, m] = r.time.split(":").map(Number);
+    const now = new Date();
+    const next = new Date();
+    next.setHours(h, m, 0, 0);
+    if (next <= now) next.setDate(next.getDate() + 1);
+    const delay = next - now;
+    if (delay > 0 && delay < 26 * 3600e3) {
+      const id = setTimeout(() => { fireNotif("GlowUp ✨", r.label); scheduleReminders(); }, delay);
+      reminderTimers.push(id);
+    }
+  });
+}
+
+function renderReminders() {
+  const box = $("#reminderRows");
+  box.innerHTML = "";
+  state.reminders.forEach(r => {
+    const row = document.createElement("div");
+    row.className = "reminder-row" + (r.on ? " on" : "");
+    row.innerHTML = `
+      <div class="rm-line">
+        <input type="time" value="${r.time}" />
+        <button class="rm-toggle ${r.on ? "on" : ""}" title="Activer/désactiver"></button>
+        <button class="rm-del" title="Supprimer">✕</button>
+      </div>
+      <input type="text" class="rm-label" value="${r.label.replace(/"/g, "&quot;")}" placeholder="Message du rappel" />`;
+    const timeEl = row.querySelector('input[type=time]');
+    const labelEl = row.querySelector('input[type=text]');
+    timeEl.addEventListener("change", () => { r.time = timeEl.value; saveState(); scheduleReminders(); });
+    labelEl.addEventListener("change", () => { r.label = labelEl.value; saveState(); });
+    row.querySelector(".rm-toggle").addEventListener("click", () => { r.on = !r.on; saveState(); renderReminders(); scheduleReminders(); });
+    row.querySelector(".rm-del").addEventListener("click", () => { state.reminders = state.reminders.filter(x => x.id !== r.id); saveState(); renderReminders(); scheduleReminders(); });
+    box.appendChild(row);
+  });
+  updateNotifState();
+}
+
+$("#settingsBtn").addEventListener("click", () => { renderReminders(); $("#reminderModal").classList.add("open"); });
+$("#closeReminder").addEventListener("click", () => $("#reminderModal").classList.remove("open"));
+$("#reminderModal").addEventListener("click", e => { if (e.target.id === "reminderModal") $("#reminderModal").classList.remove("open"); });
+$("#addReminderBtn").addEventListener("click", () => {
+  state.reminders.push({ id: "r" + Date.now(), time: "18:00", label: "Nouveau rappel", on: true });
+  saveState(); renderReminders(); scheduleReminders();
+});
+$("#enableNotifBtn").addEventListener("click", async () => {
+  if (!("Notification" in window)) { toast("Non supporté ici"); return; }
+  const p = await Notification.requestPermission();
+  updateNotifState(); scheduleReminders();
+  if (p === "granted") { toast("Notifications activées 🔔"); fireNotif("GlowUp ✨", "C'est parti ! Tu recevras tes rappels ici."); }
+});
+$("#testNotifBtn").addEventListener("click", () => fireNotif("GlowUp ✨", "Ceci est un rappel de test. Reste régulier·e 💪"));
+
+/* ============================================================
+   PHOTOS DE PROGRESSION (stockage local séparé)
+   ============================================================ */
+
+const PHOTO_KEY = "glowup.photos.v1";
+function loadPhotos() { try { return JSON.parse(localStorage.getItem(PHOTO_KEY)) || []; } catch { return []; } }
+function savePhotos(p) { try { localStorage.setItem(PHOTO_KEY, JSON.stringify(p)); return true; } catch { return false; } }
+let photos = loadPhotos();
+
+function compressImage(file, maxDim, quality) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > height && width > maxDim) { height = height * maxDim / width; width = maxDim; }
+        else if (height > maxDim) { width = width * maxDim / height; height = maxDim; }
+        const c = document.createElement("canvas");
+        c.width = width; c.height = height;
+        c.getContext("2d").drawImage(img, 0, 0, width, height);
+        resolve(c.toDataURL("image/jpeg", quality));
+      };
+      img.onerror = reject;
+      img.src = reader.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+$("#addPhotoBtn").addEventListener("click", () => $("#photoInput").click());
+$("#photoInput").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  toast("Traitement de la photo…");
+  try {
+    const data = await compressImage(file, 800, 0.72);
+    photos.unshift({ id: "p" + Date.now(), date: todayKey(), data });
+    if (!savePhotos(photos)) {
+      photos.shift();
+      toast("Stockage plein — supprime d'anciennes photos");
+    } else { renderPhotos(); toast("Photo ajoutée 📸"); }
+  } catch { toast("Impossible de lire cette image"); }
+  e.target.value = "";
+});
+
+function renderPhotos() {
+  const g = $("#photoGallery");
+  g.innerHTML = "";
+  if (!photos.length) { g.innerHTML = `<div class="photo-empty">Aucune photo pour l'instant.<br>Ajoute ta première photo « avant » 📸</div>`; return; }
+  photos.forEach(p => {
+    const d = document.createElement("div");
+    d.className = "photo-thumb";
+    const dateFr = new Date(p.date).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "2-digit" });
+    d.innerHTML = `<img src="${p.data}" alt="Progression ${dateFr}"><span class="pt-date">${dateFr}</span>`;
+    d.addEventListener("click", () => openPhotoViewer(p));
+    g.appendChild(d);
+  });
+}
+
+function openPhotoViewer(p) {
+  $("#photoViewerImg").src = p.data;
+  $("#photoViewerDate").textContent = new Date(p.date).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  $("#photoViewer").classList.add("open");
+  $("#photoDeleteBtn").onclick = () => {
+    if (confirm("Supprimer cette photo ?")) {
+      photos = photos.filter(x => x.id !== p.id);
+      savePhotos(photos); renderPhotos();
+      $("#photoViewer").classList.remove("open");
+    }
+  };
+}
+$("#photoViewerClose").addEventListener("click", () => $("#photoViewer").classList.remove("open"));
+
+/* ============================================================
+   PONT AVEC LE COACH CAMÉRA (coach.js)
+   ============================================================ */
+
+window.glowupLogReps = function (exo, reps) {
+  if (reps > 0) { day().workout = day().workout || (exo === "squat" ? "Bas du corps" : "Haut du corps"); saveState(); }
+  const label = exo === "squat" ? "squats" : "pompes";
+  toast(`${reps} ${label} validés 💪`);
+  renderAll();
+};
+
 /* ---------- Init ---------- */
+renderPhotos();
+updateNotifState();
+scheduleReminders();
 renderAll();
 
 /* ---------- PWA service worker ---------- */

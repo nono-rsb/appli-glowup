@@ -1,10 +1,11 @@
 /* GlowUp — service worker (cache offline) */
-const CACHE = "glowup-v1";
+const CACHE = "glowup-v2";
 const ASSETS = [
   "./",
   "./index.html",
   "./styles.css",
   "./app.js",
+  "./coach.js",
   "./manifest.webmanifest",
 ];
 

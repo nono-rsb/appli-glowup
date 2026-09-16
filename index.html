@@ -21,9 +21,12 @@
           <p class="tagline">Physique · Mental · Lookmaxing</p>
         </div>
       </div>
-      <div class="streak" id="streakBadge" title="Ta série de jours actifs">
-        <span class="flame">🔥</span>
-        <span id="streakCount">0</span>
+      <div class="topbar-right">
+        <button class="icon-btn" id="settingsBtn" title="Rappels & notifications" aria-label="Rappels">🔔</button>
+        <div class="streak" id="streakBadge" title="Ta série de jours actifs">
+          <span class="flame">🔥</span>
+          <span id="streakCount">0</span>
+        </div>
       </div>
     </header>
 
@@ -103,6 +106,7 @@
         <div class="seg" id="workoutSeg"></div>
         <div id="workoutDetail" class="workout-detail"></div>
         <button class="btn-primary" id="logWorkoutBtn">Valider ma séance ✓</button>
+        <button class="btn-coach" id="coachBtn">📷 Coach caméra — compter pompes & squats</button>
         <h2 class="section-title">Historique (7 derniers jours)</h2>
         <div id="workoutHistory" class="week-dots"></div>
       </section>
@@ -150,6 +154,15 @@
         <div id="scoreChart" class="chart"></div>
         <h2 class="section-title">Humeur récente</h2>
         <div id="moodChart" class="chart mood-chart"></div>
+
+        <div class="row-between">
+          <h2 class="section-title no-margin">Photos de progression 📸</h2>
+          <button class="btn-ghost" id="addPhotoBtn">+ Photo</button>
+        </div>
+        <p class="hint">Prends une photo régulièrement (même angle, même lumière) pour voir ton évolution. Stockées uniquement sur ton appareil.</p>
+        <input type="file" id="photoInput" accept="image/*" capture="environment" hidden />
+        <div id="photoGallery" class="photo-gallery"></div>
+
         <div class="danger-zone">
           <button class="btn-danger" id="resetBtn">Réinitialiser toutes mes données</button>
         </div>
@@ -182,8 +195,57 @@
     </div>
   </div>
 
+  <!-- Modal rappels / notifications -->
+  <div class="modal-overlay" id="reminderModal">
+    <div class="modal">
+      <h3>Rappels & notifications 🔔</h3>
+      <p class="hint" id="notifState">Active les notifications pour recevoir tes rappels quotidiens.</p>
+      <button class="btn-ghost" id="enableNotifBtn" style="width:100%">Activer les notifications</button>
+      <div id="reminderRows" class="reminder-rows"></div>
+      <button class="btn-ghost" id="addReminderBtn" style="width:100%;margin-top:4px">+ Ajouter un rappel</button>
+      <button class="btn-ghost" id="testNotifBtn" style="width:100%;margin-top:8px">Tester la notification</button>
+      <p class="hint" style="margin-top:10px">Astuce : installe l'app (« Ajouter à l'écran d'accueil ») pour des rappels plus fiables. Les rappels se déclenchent quand l'app est ouverte ou en arrière-plan.</p>
+      <div class="modal-actions">
+        <button class="btn-primary" id="closeReminder">Terminé</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Overlay Coach caméra -->
+  <div class="coach-overlay" id="coachOverlay">
+    <div class="coach-head">
+      <button class="icon-btn light" id="coachClose" aria-label="Fermer">✕</button>
+      <div class="coach-seg" id="coachExo"></div>
+    </div>
+    <div class="coach-stage">
+      <video id="coachVideo" playsinline muted></video>
+      <canvas id="coachCanvas"></canvas>
+      <div class="coach-hud">
+        <div class="coach-count" id="coachCount">0</div>
+        <div class="coach-feedback" id="coachFeedback">Choisis un exercice puis démarre la caméra</div>
+      </div>
+    </div>
+    <p class="coach-status" id="coachStatus"></p>
+    <div class="coach-controls">
+      <button class="btn-ghost light" id="coachStart">▶ Démarrer la caméra</button>
+      <button class="btn-ghost light" id="coachReset">↺ Reset</button>
+      <button class="btn-primary" id="coachLog">Valider (0)</button>
+    </div>
+  </div>
+
+  <!-- Visionneuse photo -->
+  <div class="photo-viewer" id="photoViewer">
+    <button class="icon-btn light" id="photoViewerClose" aria-label="Fermer">✕</button>
+    <img id="photoViewerImg" alt="Photo de progression" />
+    <div class="photo-viewer-bar">
+      <span id="photoViewerDate"></span>
+      <button class="btn-danger" id="photoDeleteBtn" style="width:auto;padding:8px 16px">Supprimer</button>
+    </div>
+  </div>
+
   <div id="toast" class="toast"></div>
 
   <script src="app.js"></script>
+  <script type="module" src="coach.js"></script>
 </body>
 </html>
