@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0e0e12" />
+  <meta name="description" content="GlowUp — routine physique, mentale et lookmaxing pour devenir la meilleure version de toi." />
+  <title>GlowUp — Physique · Mental · Lookmaxing</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%9C%A8%3C/text%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Header -->
+    <header class="topbar">
+      <div class="brand">
+        <span class="logo">✦</span>
+        <div>
+          <h1>GlowUp</h1>
+          <p class="tagline">Physique · Mental · Lookmaxing</p>
+        </div>
+      </div>
+      <div class="streak" id="streakBadge" title="Ta série de jours actifs">
+        <span class="flame">🔥</span>
+        <span id="streakCount">0</span>
+      </div>
+    </header>
+
+    <!-- Views -->
+    <main id="views">
+
+      <!-- ACCUEIL -->
+      <section class="view active" data-view="accueil">
+        <div class="hero-card">
+          <div class="hero-ring">
+            <svg viewBox="0 0 120 120" class="ring">
+              <circle class="ring-bg" cx="60" cy="60" r="52"></circle>
+              <circle class="ring-fg" id="ringFg" cx="60" cy="60" r="52"></circle>
+            </svg>
+            <div class="ring-center">
+              <span class="ring-pct" id="dayScore">0%</span>
+              <span class="ring-label">aujourd'hui</span>
+            </div>
+          </div>
+          <div class="hero-text">
+            <p class="hero-greeting" id="greeting">Salut 👋</p>
+            <p class="hero-quote" id="quote"></p>
+          </div>
+        </div>
+
+        <div class="stat-grid">
+          <div class="stat">
+            <span class="stat-num" id="statHabits">0</span>
+            <span class="stat-lbl">habitudes ✓</span>
+          </div>
+          <div class="stat">
+            <span class="stat-num" id="statStreak">0</span>
+            <span class="stat-lbl">jours de série</span>
+          </div>
+          <div class="stat">
+            <span class="stat-num" id="statWorkouts">0</span>
+            <span class="stat-lbl">séances (7j)</span>
+          </div>
+          <div class="stat">
+            <span class="stat-num" id="statMood">—</span>
+            <span class="stat-lbl">humeur moy.</span>
+          </div>
+        </div>
+
+        <h2 class="section-title">Focus du jour</h2>
+        <div id="focusList" class="focus-list"></div>
+
+        <h2 class="section-title">Défi de la semaine</h2>
+        <div class="challenge-card" id="challengeCard"></div>
+      </section>
+
+      <!-- ROUTINE -->
+      <section class="view" data-view="routine">
+        <h2 class="section-title">Routine matin ☀️</h2>
+        <div id="routineMatin" class="check-list"></div>
+        <h2 class="section-title">Routine soir 🌙</h2>
+        <div id="routineSoir" class="check-list"></div>
+        <div class="progress-inline">
+          <div class="bar"><span id="routineBar"></span></div>
+          <span id="routinePct" class="progress-pct">0%</span>
+        </div>
+      </section>
+
+      <!-- HABITUDES -->
+      <section class="view" data-view="habitudes">
+        <div class="row-between">
+          <h2 class="section-title no-margin">Mes habitudes</h2>
+          <button class="btn-ghost" id="addHabitBtn">+ Ajouter</button>
+        </div>
+        <p class="hint">Coche chaque jour pour construire ta série. Reste régulier·e 💪</p>
+        <div id="habitList" class="habit-list"></div>
+      </section>
+
+      <!-- ENTRAÎNEMENT -->
+      <section class="view" data-view="training">
+        <h2 class="section-title">Entraînement 🏋️</h2>
+        <div class="seg" id="workoutSeg"></div>
+        <div id="workoutDetail" class="workout-detail"></div>
+        <button class="btn-primary" id="logWorkoutBtn">Valider ma séance ✓</button>
+        <h2 class="section-title">Historique (7 derniers jours)</h2>
+        <div id="workoutHistory" class="week-dots"></div>
+      </section>
+
+      <!-- MENTAL -->
+      <section class="view" data-view="mental">
+        <h2 class="section-title">Humeur du jour</h2>
+        <div class="mood-picker" id="moodPicker"></div>
+
+        <h2 class="section-title">Respiration guidée</h2>
+        <div class="breath-box">
+          <div class="breath-circle" id="breathCircle"><span id="breathText">Prêt·e ?</span></div>
+          <button class="btn-primary" id="breathBtn">Démarrer 4·7·8</button>
+        </div>
+
+        <h2 class="section-title">Journal & gratitude</h2>
+        <div class="journal">
+          <label class="jlabel">3 choses pour lesquelles je suis reconnaissant·e</label>
+          <textarea id="gratitude" rows="3" placeholder="1. ...&#10;2. ...&#10;3. ..."></textarea>
+          <label class="jlabel">Une victoire d'aujourd'hui</label>
+          <textarea id="journalWin" rows="2" placeholder="Même petite, elle compte."></textarea>
+          <button class="btn-primary" id="saveJournalBtn">Enregistrer le journal ✓</button>
+          <p class="saved-hint" id="journalSaved"></p>
+        </div>
+      </section>
+
+      <!-- LOOKMAXING -->
+      <section class="view" data-view="look">
+        <h2 class="section-title">Lookmaxing ✨</h2>
+        <p class="hint">Le look-maxing, c'est optimiser ce qui est sous ton contrôle : peau, cheveux, posture, style. Naturel &gt; extrême.</p>
+        <div class="seg" id="lookCats"></div>
+        <div id="lookContent" class="look-content"></div>
+      </section>
+
+      <!-- PROGRÈS -->
+      <section class="view" data-view="progres">
+        <h2 class="section-title">Ta progression</h2>
+        <div class="stat-grid">
+          <div class="stat"><span class="stat-num" id="pTotalDays">0</span><span class="stat-lbl">jours actifs</span></div>
+          <div class="stat"><span class="stat-num" id="pBestStreak">0</span><span class="stat-lbl">meilleure série</span></div>
+          <div class="stat"><span class="stat-num" id="pJournal">0</span><span class="stat-lbl">entrées journal</span></div>
+          <div class="stat"><span class="stat-num" id="pWorkouts">0</span><span class="stat-lbl">séances totales</span></div>
+        </div>
+        <h2 class="section-title">Score des 14 derniers jours</h2>
+        <div id="scoreChart" class="chart"></div>
+        <h2 class="section-title">Humeur récente</h2>
+        <div id="moodChart" class="chart mood-chart"></div>
+        <div class="danger-zone">
+          <button class="btn-danger" id="resetBtn">Réinitialiser toutes mes données</button>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Bottom nav -->
+    <nav class="tabbar">
+      <button class="tab active" data-tab="accueil"><span>🏠</span>Accueil</button>
+      <button class="tab" data-tab="routine"><span>📋</span>Routine</button>
+      <button class="tab" data-tab="habitudes"><span>✅</span>Habitudes</button>
+      <button class="tab" data-tab="training"><span>🏋️</span>Sport</button>
+      <button class="tab" data-tab="mental"><span>🧠</span>Mental</button>
+      <button class="tab" data-tab="look"><span>✨</span>Look</button>
+      <button class="tab" data-tab="progres"><span>📈</span>Progrès</button>
+    </nav>
+  </div>
+
+  <!-- Modal ajout habitude -->
+  <div class="modal-overlay" id="habitModal">
+    <div class="modal">
+      <h3>Nouvelle habitude</h3>
+      <input type="text" id="habitInput" placeholder="Ex : Boire 2L d'eau" maxlength="40" />
+      <div class="modal-emojis" id="habitEmojis"></div>
+      <div class="modal-actions">
+        <button class="btn-ghost" id="cancelHabit">Annuler</button>
+        <button class="btn-primary" id="confirmHabit">Ajouter</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
