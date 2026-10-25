@@ -109,6 +109,16 @@
         <button class="btn-coach" id="coachBtn">📷 Coach caméra — compter pompes & squats</button>
         <h2 class="section-title">Historique (7 derniers jours)</h2>
         <div id="workoutHistory" class="week-dots"></div>
+
+        <h2 class="section-title">Coach — records & totaux 🏆</h2>
+        <div class="stat-grid">
+          <div class="stat"><span class="stat-num" id="prSquat">0</span><span class="stat-lbl">record squats</span></div>
+          <div class="stat"><span class="stat-num" id="prPush">0</span><span class="stat-lbl">record pompes</span></div>
+          <div class="stat"><span class="stat-num" id="totSquat">0</span><span class="stat-lbl">squats au total</span></div>
+          <div class="stat"><span class="stat-num" id="totPush">0</span><span class="stat-lbl">pompes au total</span></div>
+        </div>
+        <p class="hint">Reps comptées par le coach caméra sur 7 jours :</p>
+        <div id="coachWeek" class="week-dots"></div>
       </section>
 
       <!-- MENTAL -->
@@ -139,6 +149,31 @@
         <p class="hint">Le look-maxing, c'est optimiser ce qui est sous ton contrôle : peau, cheveux, posture, style. Naturel &gt; extrême.</p>
         <div class="seg" id="lookCats"></div>
         <div id="lookContent" class="look-content"></div>
+
+        <h2 class="section-title">État de ma peau aujourd'hui 🧖</h2>
+        <div class="skin-picker" id="skinPicker"></div>
+        <textarea id="skinNote" rows="2" placeholder="Note du jour : boutons, sécheresse, éclat, produits testés…"></textarea>
+        <button class="btn-primary" id="saveSkinBtn">Enregistrer l'état de ma peau ✓</button>
+        <p class="saved-hint" id="skinSaved"></p>
+
+        <div class="row-between">
+          <h2 class="section-title no-margin">Photos peau 📷</h2>
+          <button class="btn-ghost" id="addSkinPhotoBtn">+ Photo</button>
+        </div>
+        <p class="hint">Gros plan du visage, même lumière, pour suivre l'évolution de ta peau.</p>
+        <input type="file" id="skinPhotoInput" accept="image/*" capture="user" hidden />
+        <div id="skinGallery" class="photo-gallery"></div>
+
+        <div class="row-between">
+          <h2 class="section-title no-margin">Soins & fréquences 🗓️</h2>
+          <button class="btn-ghost" id="addCareBtn">+ Soin</button>
+        </div>
+        <p class="hint">Coche quand c'est fait : l'app te dit quand le prochain soin arrive.</p>
+        <div id="careList" class="care-list"></div>
+
+        <h2 class="section-title">Rappels peau intelligents 🔔</h2>
+        <p class="hint">Ajoute un rappel en un tap (modifiable ensuite dans 🔔 en haut).</p>
+        <div id="smartReminders" class="smart-reminders"></div>
       </section>
 
       <!-- PROGRÈS -->
@@ -154,6 +189,16 @@
         <div id="scoreChart" class="chart"></div>
         <h2 class="section-title">Humeur récente</h2>
         <div id="moodChart" class="chart mood-chart"></div>
+
+        <div class="row-between">
+          <h2 class="section-title no-margin">Corps & mensurations 📏</h2>
+          <button class="btn-ghost" id="addMeasureBtn">+ Mesure</button>
+        </div>
+        <div class="measure-head" id="measureHead"></div>
+        <div id="weightChart" class="weight-chart"></div>
+
+        <h2 class="section-title">Badges 🏅</h2>
+        <div id="badgeGrid" class="badge-grid"></div>
 
         <div class="row-between">
           <h2 class="section-title no-margin">Photos de progression 📸</h2>
@@ -191,6 +236,40 @@
       <div class="modal-actions">
         <button class="btn-ghost" id="cancelHabit">Annuler</button>
         <button class="btn-primary" id="confirmHabit">Ajouter</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal mesure -->
+  <div class="modal-overlay" id="measureModal">
+    <div class="modal">
+      <h3>Nouvelle mesure 📏</h3>
+      <label class="jlabel">Poids (kg)</label>
+      <input type="number" id="mPoids" inputmode="decimal" step="0.1" placeholder="Ex : 72.5" />
+      <label class="jlabel">Taille (cm) — pour calculer l'IMC</label>
+      <input type="number" id="mTaille" inputmode="numeric" placeholder="Ex : 178" />
+      <label class="jlabel">Tour de taille (cm) — optionnel</label>
+      <input type="number" id="mWaist" inputmode="decimal" placeholder="Ex : 82" />
+      <label class="jlabel">Tour de bras (cm) — optionnel</label>
+      <input type="number" id="mBras" inputmode="decimal" placeholder="Ex : 35" />
+      <div class="modal-actions">
+        <button class="btn-ghost" id="cancelMeasure">Annuler</button>
+        <button class="btn-primary" id="confirmMeasure">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal soin -->
+  <div class="modal-overlay" id="careModal">
+    <div class="modal">
+      <h3>Nouveau soin 🗓️</h3>
+      <input type="text" id="careName" placeholder="Ex : Coupe de cheveux" maxlength="40" />
+      <div class="modal-emojis" id="careEmojis"></div>
+      <label class="jlabel">Fréquence : tous les combien de jours ?</label>
+      <input type="number" id="careEvery" inputmode="numeric" min="1" placeholder="Ex : 28" />
+      <div class="modal-actions">
+        <button class="btn-ghost" id="cancelCare">Annuler</button>
+        <button class="btn-primary" id="confirmCare">Ajouter</button>
       </div>
     </div>
   </div>

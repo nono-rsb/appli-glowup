@@ -133,6 +133,24 @@ const MOODS = [
   { v: 5, e: "😄", l: "Top" },
 ];
 
+const SKIN_LEVELS = [
+  { v: 1, e: "😣", l: "Irritée" },
+  { v: 2, e: "😕", l: "Terne" },
+  { v: 3, e: "😐", l: "Correcte" },
+  { v: 4, e: "🙂", l: "Nette" },
+  { v: 5, e: "✨", l: "Glowy" },
+];
+
+const CARE_EMOJIS = ["💇","🧖","💆","💅","🪒","🧴","🦷","👁️","🛁","✂️","🧼","💈"];
+
+const SMART_REMINDERS = [
+  { time: "08:30", label: "☀️ As-tu mis ton SPF ?" },
+  { time: "22:00", label: "🧴 Double nettoyage + soin visage" },
+  { time: "12:30", label: "💧 Hydrate-toi (eau + lèvres)" },
+  { time: "23:00", label: "🦷 Brossage + fil dentaire" },
+  { time: "20:00", label: "🧍 Check posture : épaules en arrière" },
+];
+
 /* ---------- État ---------- */
 
 function freshDay() {
@@ -151,6 +169,16 @@ function loadState() {
     { id: "r1", time: "08:00", label: "Routine du matin ☀️", on: true },
     { id: "r2", time: "13:00", label: "Bouge un peu + bois de l'eau 💧", on: true },
     { id: "r3", time: "21:30", label: "Routine du soir & journal 🌙", on: true },
+  ];
+  s.profile = s.profile || { height: null };
+  s.measures = s.measures || [];
+  s.records = s.records || { squat: 0, pushup: 0 };
+  s.badgesSeen = s.badgesSeen || [];
+  if (!s.careTasks) s.careTasks = [
+    { id: "c1", emoji: "💇", name: "Coupe de cheveux", every: 28, last: null },
+    { id: "c2", emoji: "🧖", name: "Gommage visage", every: 7, last: null },
+    { id: "c3", emoji: "💆", name: "Masque hydratant", every: 7, last: null },
+    { id: "c4", emoji: "💅", name: "Couper les ongles", every: 10, last: null },
   ];
   if (!s.days[todayKey()]) s.days[todayKey()] = freshDay();
   return s;
@@ -397,6 +425,26 @@ function renderTraining() {
     el.innerHTML = `<small>${labels[(d.getDay() + 6) % 7]}</small>${on ? "✓" : "·"}`;
     hist.appendChild(el);
   });
+
+  // Coach : records & totaux
+  $("#prSquat").textContent = (state.records && state.records.squat) || 0;
+  $("#prPush").textContent = (state.records && state.records.pushup) || 0;
+  $("#totSquat").textContent = sumCoach("squat");
+  $("#totPush").textContent = sumCoach("pushup");
+  const cw = $("#coachWeek");
+  cw.innerHTML = "";
+  lastNDates(7).forEach(k => {
+    const d = new Date(k);
+    const c = state.days[k] && state.days[k].coach;
+    const n = c ? (c.squat || 0) + (c.pushup || 0) : 0;
+    const el = document.createElement("div");
+    el.className = "wd" + (n ? " on" : "");
+    el.innerHTML = `<small>${labels[(d.getDay() + 6) % 7]}</small>${n || "·"}`;
+    cw.appendChild(el);
+  });
+}
+function sumCoach(exo) {
+  return Object.values(state.days).reduce((a, d) => a + ((d.coach && d.coach[exo]) || 0), 0);
 }
 $("#logWorkoutBtn").addEventListener("click", () => {
   day().workout = day().workout ? null : currentWorkout;
@@ -493,6 +541,10 @@ function renderLook() {
     el.innerHTML = `<h4>${card.h}</h4>${card.p ? `<p>${card.p}</p>` : ""}${card.li.length ? `<ul>${card.li.map(x => `<li>${x}</li>`).join("")}</ul>` : ""}`;
     content.appendChild(el);
   });
+  if (typeof renderSkin === "function") renderSkin();
+  if (typeof renderCare === "function") renderCare();
+  if (typeof renderSkinPhotos === "function") renderSkinPhotos();
+  if (typeof renderSmartReminders === "function") renderSmartReminders();
 }
 
 /* ---------- Rendu : Progrès ---------- */
@@ -527,6 +579,8 @@ function renderProgres() {
     mc.appendChild(bar);
   });
   if (typeof renderPhotos === "function") renderPhotos();
+  if (typeof renderMeasures === "function") renderMeasures();
+  if (typeof renderBadges === "function") renderBadges();
 }
 $("#resetBtn").addEventListener("click", () => {
   if (confirm("Effacer toutes tes données GlowUp ? Cette action est irréversible.")) {
@@ -719,11 +773,317 @@ $("#photoViewerClose").addEventListener("click", () => $("#photoViewer").classLi
    ============================================================ */
 
 window.glowupLogReps = function (exo, reps) {
-  if (reps > 0) { day().workout = day().workout || (exo === "squat" ? "Bas du corps" : "Haut du corps"); saveState(); }
   const label = exo === "squat" ? "squats" : "pompes";
-  toast(`${reps} ${label} validés 💪`);
+  let msg = `${reps} ${label} validés 💪`;
+  if (reps > 0) {
+    const d = day();
+    d.coach = d.coach || { squat: 0, pushup: 0 };
+    d.coach[exo] = (d.coach[exo] || 0) + reps;
+    d.workout = d.workout || (exo === "squat" ? "Bas du corps" : "Haut du corps");
+    state.records = state.records || { squat: 0, pushup: 0 };
+    if (reps > (state.records[exo] || 0)) {
+      state.records[exo] = reps;
+      msg = `🏆 Nouveau record : ${reps} ${label} !`;
+    }
+    saveState();
+  }
+  toast(msg);
   renderAll();
 };
+
+/* ============================================================
+   MENSURATIONS & COURBE DE POIDS
+   ============================================================ */
+
+function imcCategory(imc) {
+  if (imc < 18.5) return { t: "Maigreur", c: "var(--warn)" };
+  if (imc < 25) return { t: "Normal", c: "var(--good)" };
+  if (imc < 30) return { t: "Surpoids", c: "var(--warn)" };
+  return { t: "Obésité", c: "var(--bad)" };
+}
+
+function renderMeasures() {
+  const head = $("#measureHead");
+  const ms = state.measures.slice().sort((a, b) => a.date < b.date ? -1 : 1);
+  const last = ms[ms.length - 1];
+  const first = ms[0];
+  head.innerHTML = "";
+  if (!last) {
+    head.innerHTML = `<div class="photo-empty" style="width:100%">Aucune mesure. Ajoute ton poids pour suivre ton évolution 📉</div>`;
+  } else {
+    const cards = [];
+    cards.push(`<div class="mh"><b>${last.poids ?? "—"}</b><span>poids (kg)</span></div>`);
+    if (first && last.poids != null && first.poids != null && first !== last) {
+      const diff = +(last.poids - first.poids).toFixed(1);
+      const cls = diff > 0 ? "up" : diff < 0 ? "down" : "";
+      cards.push(`<div class="mh"><b class="${cls}">${diff > 0 ? "+" : ""}${diff}</b><span>depuis le début</span></div>`);
+    }
+    const h = state.profile.height;
+    if (h && last.poids != null) {
+      const imc = last.poids / Math.pow(h / 100, 2);
+      const cat = imcCategory(imc);
+      cards.push(`<div class="mh"><b>${imc.toFixed(1)}</b><span>IMC</span><span class="imc-tag" style="background:${cat.c};color:#0e0e12">${cat.t}</span></div>`);
+    }
+    if (last.waist != null) cards.push(`<div class="mh"><b>${last.waist}</b><span>tour taille (cm)</span></div>`);
+    if (last.bras != null) cards.push(`<div class="mh"><b>${last.bras}</b><span>tour bras (cm)</span></div>`);
+    head.innerHTML = cards.join("");
+  }
+  drawWeightChart(ms.filter(m => m.poids != null));
+}
+
+function drawWeightChart(pts) {
+  const el = $("#weightChart");
+  if (pts.length < 2) {
+    el.innerHTML = `<div class="photo-empty" style="border:none;padding:14px 0">Ajoute au moins 2 mesures de poids pour voir ta courbe.</div>`;
+    return;
+  }
+  const w = 320, h = 130, pad = 22;
+  const vals = pts.map(p => p.poids);
+  const min = Math.min(...vals), max = Math.max(...vals), range = (max - min) || 1;
+  const x = i => pad + (i / (pts.length - 1)) * (w - 2 * pad);
+  const y = v => pad + (1 - (v - min) / range) * (h - 2 * pad);
+  const line = pts.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)} ${y(p.poids).toFixed(1)}`).join(" ");
+  const area = `${line} L${x(pts.length - 1).toFixed(1)} ${h - pad} L${x(0).toFixed(1)} ${h - pad} Z`;
+  const dots = pts.map((p, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(p.poids).toFixed(1)}" r="3"/>`).join("");
+  const dLabel = (iso) => { const d = new Date(iso); return `${d.getDate()}/${d.getMonth() + 1}`; };
+  el.innerHTML = `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" role="img" aria-label="Courbe de poids">
+    <defs><linearGradient id="wgrad" x1="0" x2="1"><stop offset="0" stop-color="#b98cff"/><stop offset="1" stop-color="#ff9ec7"/></linearGradient></defs>
+    <path class="wc-area" d="${area}"/>
+    <path class="wc-line" d="${line}"/>
+    ${dots}
+    <text x="${pad}" y="12">${max} kg</text>
+    <text x="${pad}" y="${h - 6}">${min} kg</text>
+    <text x="${w - pad}" y="${h - 6}" text-anchor="end">${dLabel(pts[pts.length - 1].date)}</text>
+    <text x="${pad}" y="${h - 6}" dx="34">${dLabel(pts[0].date)}</text>
+  </svg>`;
+}
+
+$("#addMeasureBtn").addEventListener("click", () => {
+  const last = state.measures.slice().sort((a, b) => a.date < b.date ? -1 : 1).pop();
+  $("#mPoids").value = last && last.poids != null ? last.poids : "";
+  $("#mTaille").value = state.profile.height || "";
+  $("#mWaist").value = last && last.waist != null ? last.waist : "";
+  $("#mBras").value = last && last.bras != null ? last.bras : "";
+  $("#measureModal").classList.add("open");
+});
+$("#cancelMeasure").addEventListener("click", () => $("#measureModal").classList.remove("open"));
+$("#measureModal").addEventListener("click", e => { if (e.target.id === "measureModal") $("#measureModal").classList.remove("open"); });
+$("#confirmMeasure").addEventListener("click", () => {
+  const num = (id) => { const v = parseFloat($(id).value.replace(",", ".")); return isNaN(v) ? null : v; };
+  const poids = num("#mPoids"), taille = num("#mTaille"), waist = num("#mWaist"), bras = num("#mBras");
+  if (poids == null && waist == null && bras == null) { toast("Entre au moins une valeur"); return; }
+  if (taille != null) state.profile.height = taille;
+  const key = todayKey();
+  const existing = state.measures.find(m => m.date === key);
+  if (existing) { if (poids != null) existing.poids = poids; if (waist != null) existing.waist = waist; if (bras != null) existing.bras = bras; }
+  else state.measures.push({ id: "m" + Date.now(), date: key, poids, waist, bras });
+  saveState(); $("#measureModal").classList.remove("open"); renderMeasures(); renderBadges();
+  toast("Mesure enregistrée 📏");
+});
+
+/* ============================================================
+   BADGES DE MOTIVATION
+   ============================================================ */
+
+function computeBadges() {
+  const days = state.days;
+  const activeDays = Object.keys(days).filter(k => dayScore(k) >= 40).length;
+  const workouts = Object.values(days).filter(d => d.workout).length;
+  const journalN = Object.values(days).filter(d => (d.gratitude && d.gratitude.trim()) || (d.win && d.win.trim())).length;
+  const perfectDay = Object.keys(days).some(k => dayScore(k) === 100);
+  const totPush = sumCoach("pushup"), totSquat = sumCoach("squat");
+  const skinDays = Object.values(days).filter(d => d.skin && d.skin.rating).length;
+  return [
+    { e: "🌱", n: "Premier pas", d: "1er jour actif", got: activeDays >= 1 },
+    { e: "🔥", n: "Série de 7", d: "7 jours d'affilée", got: (state.bestStreak || 0) >= 7 },
+    { e: "⚡", n: "Série de 30", d: "30 jours d'affilée", got: (state.bestStreak || 0) >= 30 },
+    { e: "🏋️", n: "Sportif·ve", d: "10 séances", got: workouts >= 10 },
+    { e: "💪", n: "100 pompes", d: "cumulées", got: totPush >= 100 },
+    { e: "🦵", n: "100 squats", d: "cumulés", got: totSquat >= 100 },
+    { e: "📸", n: "Avant/après", d: "1re photo", got: (typeof photos !== "undefined" ? photos.length : 0) >= 1 },
+    { e: "📝", n: "Introspection", d: "7 entrées journal", got: journalN >= 7 },
+    { e: "⭐", n: "Journée parfaite", d: "100% un jour", got: perfectDay },
+    { e: "🧖", n: "Skincare", d: "peau notée 7j", got: skinDays >= 7 },
+    { e: "📏", n: "Mesuré·e", d: "3 mesures", got: state.measures.length >= 3 },
+    { e: "🏅", n: "Discipliné·e", d: "30 jours actifs", got: activeDays >= 30 },
+  ];
+}
+
+function renderBadges() {
+  const grid = $("#badgeGrid");
+  const badges = computeBadges();
+  grid.innerHTML = "";
+  badges.forEach(b => {
+    const el = document.createElement("div");
+    el.className = "badge" + (b.got ? " got" : "");
+    el.innerHTML = `<span class="b-emoji">${b.e}</span><span class="b-name">${b.n}</span><span class="b-desc">${b.d}</span>`;
+    grid.appendChild(el);
+  });
+  // Nouveau badge débloqué ?
+  badges.filter(b => b.got && !state.badgesSeen.includes(b.n)).forEach(b => {
+    state.badgesSeen.push(b.n);
+    setTimeout(() => toast(`🏅 Badge débloqué : ${b.n} !`), 300);
+  });
+  saveState();
+}
+
+/* ============================================================
+   SUIVI PEAU + PHOTOS PEAU
+   ============================================================ */
+
+function renderSkin() {
+  const sp = $("#skinPicker");
+  sp.innerHTML = "";
+  const cur = day().skin || {};
+  SKIN_LEVELS.forEach(s => {
+    const b = document.createElement("button");
+    b.className = "skin-btn" + (cur.rating === s.v ? " sel" : "");
+    b.innerHTML = `${s.e}<small>${s.l}</small>`;
+    b.addEventListener("click", () => {
+      day().skin = { rating: s.v, note: (day().skin && day().skin.note) || "" };
+      saveState(); renderSkin(); renderBadges();
+    });
+    sp.appendChild(b);
+  });
+  $("#skinNote").value = cur.note || "";
+}
+$("#saveSkinBtn").addEventListener("click", () => {
+  const cur = day().skin || {};
+  day().skin = { rating: cur.rating || null, note: $("#skinNote").value };
+  saveState();
+  $("#skinSaved").textContent = "Enregistré ✓";
+  toast("État de la peau enregistré 🧖");
+});
+$("#skinNote") && $("#skinNote").addEventListener("input", () => { $("#skinSaved").textContent = ""; });
+
+const SKINPHOTO_KEY = "glowup.skinphotos.v1";
+function loadSkinPhotos() { try { return JSON.parse(localStorage.getItem(SKINPHOTO_KEY)) || []; } catch { return []; } }
+function saveSkinPhotos(p) { try { localStorage.setItem(SKINPHOTO_KEY, JSON.stringify(p)); return true; } catch { return false; } }
+let skinPhotos = loadSkinPhotos();
+
+$("#addSkinPhotoBtn").addEventListener("click", () => $("#skinPhotoInput").click());
+$("#skinPhotoInput").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  toast("Traitement…");
+  try {
+    const data = await compressImage(file, 800, 0.72);
+    skinPhotos.unshift({ id: "sp" + Date.now(), date: todayKey(), data });
+    if (!saveSkinPhotos(skinPhotos)) { skinPhotos.shift(); toast("Stockage plein"); }
+    else { renderSkinPhotos(); toast("Photo peau ajoutée 📷"); }
+  } catch { toast("Image illisible"); }
+  e.target.value = "";
+});
+function renderSkinPhotos() {
+  const g = $("#skinGallery");
+  g.innerHTML = "";
+  if (!skinPhotos.length) { g.innerHTML = `<div class="photo-empty">Aucune photo peau.</div>`; return; }
+  skinPhotos.forEach(p => {
+    const d = document.createElement("div");
+    d.className = "photo-thumb";
+    const dateFr = new Date(p.date).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "2-digit" });
+    d.innerHTML = `<img src="${p.data}" alt="Peau ${dateFr}"><span class="pt-date">${dateFr}</span>`;
+    d.addEventListener("click", () => {
+      $("#photoViewerImg").src = p.data;
+      $("#photoViewerDate").textContent = new Date(p.date).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+      $("#photoViewer").classList.add("open");
+      $("#photoDeleteBtn").onclick = () => {
+        if (confirm("Supprimer cette photo ?")) {
+          skinPhotos = skinPhotos.filter(x => x.id !== p.id);
+          saveSkinPhotos(skinPhotos); renderSkinPhotos();
+          $("#photoViewer").classList.remove("open");
+        }
+      };
+    });
+    g.appendChild(d);
+  });
+}
+
+/* ============================================================
+   SOINS & FRÉQUENCES
+   ============================================================ */
+
+function daysBetween(a, b) { return Math.round((a - b) / 864e5); }
+function renderCare() {
+  const el = $("#careList");
+  el.innerHTML = "";
+  const today = new Date(todayKey());
+  state.careTasks.forEach(c => {
+    let subTxt, subCls;
+    if (!c.last) { subTxt = "Jamais fait — à planifier"; subCls = "soon"; }
+    else {
+      const since = daysBetween(today, new Date(c.last));
+      const left = c.every - since;
+      if (left > 1) { subTxt = `Prochain dans ${left} j · tous les ${c.every} j`; subCls = "ok"; }
+      else if (left >= 0) { subTxt = left === 0 ? "À faire aujourd'hui" : "À faire demain"; subCls = "soon"; }
+      else { subTxt = `En retard de ${-left} j`; subCls = "late"; }
+    }
+    const row = document.createElement("div");
+    row.className = "care";
+    row.innerHTML = `
+      <span class="care-emoji">${c.emoji}</span>
+      <div class="care-info"><div class="care-name">${c.name}</div><div class="care-sub ${subCls}">${subTxt}</div></div>
+      <button class="care-do">Fait ✓</button>
+      <button class="care-del" title="Supprimer">✕</button>`;
+    row.querySelector(".care-do").addEventListener("click", () => { c.last = todayKey(); saveState(); renderCare(); toast(`${c.name} : c'est noté ✓`); });
+    row.querySelector(".care-del").addEventListener("click", () => {
+      if (confirm(`Supprimer « ${c.name} » ?`)) { state.careTasks = state.careTasks.filter(x => x.id !== c.id); saveState(); renderCare(); }
+    });
+    el.appendChild(row);
+  });
+}
+
+let selectedCareEmoji = CARE_EMOJIS[0];
+$("#addCareBtn").addEventListener("click", () => {
+  $("#careName").value = ""; $("#careEvery").value = "";
+  selectedCareEmoji = CARE_EMOJIS[0];
+  const box = $("#careEmojis");
+  box.innerHTML = "";
+  CARE_EMOJIS.forEach(e => {
+    const b = document.createElement("button");
+    b.textContent = e;
+    if (e === selectedCareEmoji) b.classList.add("sel");
+    b.addEventListener("click", () => { selectedCareEmoji = e; $$("#careEmojis button").forEach(x => x.classList.remove("sel")); b.classList.add("sel"); });
+    box.appendChild(b);
+  });
+  $("#careModal").classList.add("open");
+});
+$("#cancelCare").addEventListener("click", () => $("#careModal").classList.remove("open"));
+$("#careModal").addEventListener("click", e => { if (e.target.id === "careModal") $("#careModal").classList.remove("open"); });
+$("#confirmCare").addEventListener("click", () => {
+  const name = $("#careName").value.trim();
+  const every = parseInt($("#careEvery").value, 10);
+  if (!name) { toast("Donne un nom au soin"); return; }
+  if (!every || every < 1) { toast("Indique une fréquence en jours"); return; }
+  state.careTasks.push({ id: "c" + Date.now(), emoji: selectedCareEmoji, name, every, last: null });
+  saveState(); $("#careModal").classList.remove("open"); renderCare(); toast("Soin ajouté 🗓️");
+});
+
+/* ============================================================
+   RAPPELS PEAU INTELLIGENTS (ajout rapide)
+   ============================================================ */
+
+function renderSmartReminders() {
+  const box = $("#smartReminders");
+  box.innerHTML = "";
+  SMART_REMINDERS.forEach(sr => {
+    const added = state.reminders.some(r => r.label === sr.label);
+    const chip = document.createElement("button");
+    chip.className = "smart-chip" + (added ? " added" : "");
+    chip.textContent = (added ? "✓ " : "+ ") + sr.label;
+    chip.addEventListener("click", () => {
+      if (state.reminders.some(r => r.label === sr.label)) {
+        state.reminders = state.reminders.filter(r => r.label !== sr.label);
+        toast("Rappel retiré");
+      } else {
+        state.reminders.push({ id: "r" + Date.now(), time: sr.time, label: sr.label, on: true });
+        toast("Rappel ajouté 🔔 (" + sr.time + ")");
+      }
+      saveState(); renderSmartReminders(); scheduleReminders();
+    });
+    box.appendChild(chip);
+  });
+}
 
 /* ---------- Init ---------- */
 renderPhotos();
