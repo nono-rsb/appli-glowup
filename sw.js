@@ -1,5 +1,5 @@
 /* GlowUp — service worker (cache offline) */
-const CACHE = "glowup-v4";
+const CACHE = "glowup-v5";
 const ASSETS = [
   "./",
   "./index.html",
@@ -7,6 +7,9 @@ const ASSETS = [
   "./app.js",
   "./coach.js",
   "./manifest.webmanifest",
+  "./icon-192.png",
+  "./icon-512.png",
+  "./apple-touch-icon.png",
 ];
 
 self.addEventListener("install", (e) => {
