@@ -1085,7 +1085,167 @@ function renderSmartReminders() {
   });
 }
 
+/* ============================================================
+   MINUTEUR D'ENTRAÎNEMENT (simple + HIIT)
+   ============================================================ */
+
+let timerMode = "simple";
+let simpleDur = 30;
+const TIMER_PRESETS = [20, 30, 45, 60, 90];
+let timerInterval = null, timerPhases = [], timerIdx = 0, timerLeft = 0, timerRunning = false;
+
+function beep(freq = 880, dur = 0.15, type = "sine") {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    beep._ctx = beep._ctx || new Ctx();
+    const ctx = beep._ctx;
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = type; o.frequency.value = freq;
+    o.connect(g); g.connect(ctx.destination);
+    g.gain.setValueAtTime(0.001, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.4, ctx.currentTime + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur);
+    o.start(); o.stop(ctx.currentTime + dur);
+  } catch {}
+}
+function fmtTime(s) { const m = Math.floor(s / 60), r = s % 60; return `${String(m).padStart(2, "0")}:${String(r).padStart(2, "0")}`; }
+
+function renderTimerUI() {
+  const seg = $("#timerMode");
+  seg.innerHTML = "";
+  [["simple", "Minuteur simple"], ["hiit", "HIIT / intervalles"]].forEach(([k, l]) => {
+    const b = document.createElement("button");
+    b.textContent = l;
+    if (k === timerMode) b.classList.add("active");
+    b.addEventListener("click", () => { if (timerRunning) resetTimer(); timerMode = k; renderTimerUI(); });
+    seg.appendChild(b);
+  });
+  const presets = $("#timerPresets"), hiit = $("#timerHiit");
+  if (timerMode === "simple") {
+    presets.style.display = "flex"; hiit.classList.remove("show");
+    presets.innerHTML = "";
+    TIMER_PRESETS.forEach(s => {
+      const b = document.createElement("button");
+      b.textContent = s + "s";
+      if (s === simpleDur) b.classList.add("sel");
+      b.addEventListener("click", () => { if (timerRunning) resetTimer(); simpleDur = s; renderTimerUI(); });
+      presets.appendChild(b);
+    });
+    if (!timerRunning) { $("#timerDisplay").textContent = fmtTime(simpleDur); $("#timerPhase").textContent = "Prêt·e"; $("#timerDisplay").className = "timer-display"; }
+  } else {
+    presets.style.display = "none"; hiit.classList.add("show");
+    if (!timerRunning) { $("#timerDisplay").textContent = "00:00"; $("#timerPhase").textContent = "Prêt·e"; $("#timerDisplay").className = "timer-display"; }
+  }
+}
+
+function buildPhases() {
+  if (timerMode === "simple") return [{ type: "work", label: "En cours 💪", dur: simpleDur }];
+  const work = Math.max(5, parseInt($("#hiitWork").value, 10) || 30);
+  const rest = Math.max(0, parseInt($("#hiitRest").value, 10) || 0);
+  const rounds = Math.max(1, parseInt($("#hiitRounds").value, 10) || 1);
+  const ph = [{ type: "prep", label: "Prépare-toi…", dur: 5 }];
+  for (let i = 1; i <= rounds; i++) {
+    ph.push({ type: "work", label: `Effort — tour ${i}/${rounds} 🔥`, dur: work });
+    if (rest > 0 && i < rounds) ph.push({ type: "rest", label: `Repos — tour ${i}/${rounds} 😮‍💨`, dur: rest });
+  }
+  return ph;
+}
+
+function startTimer() {
+  if (timerRunning) { pauseTimer(); return; }
+  if (!timerPhases.length || timerIdx >= timerPhases.length) { timerPhases = buildPhases(); timerIdx = 0; timerLeft = timerPhases[0].dur; }
+  timerRunning = true;
+  $("#timerStart").textContent = "⏸ Pause";
+  beep(880, 0.12);
+  tickShow();
+  timerInterval = setInterval(() => {
+    timerLeft--;
+    if (timerLeft <= 0) {
+      timerIdx++;
+      if (timerIdx >= timerPhases.length) { finishTimer(); return; }
+      timerLeft = timerPhases[timerIdx].dur;
+      const t = timerPhases[timerIdx].type;
+      beep(t === "work" ? 988 : t === "rest" ? 660 : 880, 0.15);
+    } else if (timerLeft <= 3) { beep(1200, 0.08); }
+    tickShow();
+  }, 1000);
+}
+function tickShow() {
+  const ph = timerPhases[timerIdx];
+  $("#timerDisplay").textContent = fmtTime(timerLeft);
+  $("#timerDisplay").className = "timer-display " + ph.type;
+  $("#timerPhase").textContent = ph.label;
+}
+function pauseTimer() { timerRunning = false; clearInterval(timerInterval); $("#timerStart").textContent = "▶ Reprendre"; }
+function finishTimer() {
+  clearInterval(timerInterval); timerRunning = false;
+  timerPhases = []; timerIdx = 0;
+  beep(1320, 0.18); setTimeout(() => beep(1320, 0.18), 220); setTimeout(() => beep(1600, 0.3), 440);
+  $("#timerDisplay").textContent = "00:00"; $("#timerDisplay").className = "timer-display";
+  $("#timerPhase").textContent = "Terminé ! 🎉"; $("#timerStart").textContent = "▶ Démarrer";
+  toast("Minuteur terminé 🎉");
+  if (navigator.vibrate) navigator.vibrate([120, 60, 120]);
+}
+function resetTimer() {
+  clearInterval(timerInterval); timerRunning = false;
+  timerPhases = []; timerIdx = 0;
+  $("#timerStart").textContent = "▶ Démarrer";
+  renderTimerUI();
+}
+$("#timerStart").addEventListener("click", startTimer);
+$("#timerReset").addEventListener("click", resetTimer);
+
+/* ============================================================
+   EXPORT / IMPORT DES DONNÉES
+   ============================================================ */
+
+function exportData() {
+  const payload = {
+    app: "GlowUp", version: 1, exportedAt: new Date().toISOString(),
+    state: localStorage.getItem(STORE_KEY),
+    photos: localStorage.getItem(PHOTO_KEY),
+    skinPhotos: localStorage.getItem(SKINPHOTO_KEY),
+  };
+  try {
+    const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `glowup-sauvegarde-${todayKey()}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+    toast("Sauvegarde exportée 💾");
+  } catch { toast("Export impossible sur ce navigateur"); }
+}
+$("#exportBtn").addEventListener("click", exportData);
+$("#importBtn").addEventListener("click", () => $("#importInput").click());
+$("#importInput").addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const data = JSON.parse(reader.result);
+      if (data.app !== "GlowUp" || !data.state) { toast("Fichier GlowUp invalide"); return; }
+      if (!confirm("Importer cette sauvegarde ? Tes données actuelles seront remplacées.")) return;
+      localStorage.setItem(STORE_KEY, data.state);
+      if (data.photos) localStorage.setItem(PHOTO_KEY, data.photos); else localStorage.removeItem(PHOTO_KEY);
+      if (data.skinPhotos) localStorage.setItem(SKINPHOTO_KEY, data.skinPhotos); else localStorage.removeItem(SKINPHOTO_KEY);
+      state = loadState();
+      photos = loadPhotos();
+      skinPhotos = loadSkinPhotos();
+      resetTimer();
+      updateNotifState(); scheduleReminders();
+      renderAll();
+      toast("Sauvegarde importée ✓");
+    } catch { toast("Fichier illisible"); }
+  };
+  reader.readAsText(file);
+  e.target.value = "";
+});
+
 /* ---------- Init ---------- */
+renderTimerUI();
 renderPhotos();
 updateNotifState();
 scheduleReminders();

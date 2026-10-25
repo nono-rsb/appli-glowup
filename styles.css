@@ -393,6 +393,27 @@ textarea:focus, .modal input:focus { outline: none; border-color: var(--accent);
 .smart-chip:active { transform: scale(.96); }
 .smart-chip.added { background: var(--grad); color: #1a1024; border-color: transparent; }
 
+/* Minuteur */
+.timer-box { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 14px; align-items: center; }
+.timer-box .seg { width: 100%; justify-content: center; }
+.timer-display { font-size: 58px; font-weight: 900; font-variant-numeric: tabular-nums; letter-spacing: 1px; line-height: 1; }
+.timer-display.work { color: var(--good); } .timer-display.rest { color: var(--warn); } .timer-display.prep { color: var(--accent); }
+.timer-phase { font-size: 14px; font-weight: 700; color: var(--txt-dim); margin-top: -8px; }
+.timer-presets { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.timer-presets button { padding: 9px 15px; border-radius: 30px; border: 1px solid var(--line); background: var(--bg-soft); color: var(--txt); font-size: 13px; font-weight: 700; cursor: pointer; }
+.timer-presets button.sel { background: var(--grad); color: #1a1024; border-color: transparent; }
+.timer-hiit { display: none; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.timer-hiit.show { display: flex; }
+.timer-hiit label { display: flex; flex-direction: column; align-items: center; font-size: 11px; color: var(--txt-dim); gap: 4px; }
+.timer-hiit input { width: 64px; background: var(--bg-soft); border: 1px solid var(--line); color: var(--txt); border-radius: 10px; padding: 8px; font-size: 16px; text-align: center; font-family: inherit; }
+.timer-hiit span { font-size: 10px; color: var(--txt-dim); }
+.timer-controls { display: flex; gap: 10px; width: 100%; }
+.timer-controls button { flex: 1; margin-top: 0; }
+
+/* Sauvegarde */
+.backup-row { display: flex; gap: 10px; margin-bottom: 12px; }
+.backup-row button { flex: 1; }
+
 /* Toast */
 .toast {
   position: fixed; bottom: calc(96px + var(--safe-b)); left: 50%; transform: translateX(-50%) translateY(20px);

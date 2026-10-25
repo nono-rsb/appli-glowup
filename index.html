@@ -119,6 +119,23 @@
         </div>
         <p class="hint">Reps comptées par le coach caméra sur 7 jours :</p>
         <div id="coachWeek" class="week-dots"></div>
+
+        <h2 class="section-title">Minuteur ⏱️</h2>
+        <div class="timer-box">
+          <div class="seg" id="timerMode"></div>
+          <div class="timer-display" id="timerDisplay">00:30</div>
+          <div class="timer-phase" id="timerPhase">Prêt·e</div>
+          <div id="timerPresets" class="timer-presets"></div>
+          <div id="timerHiit" class="timer-hiit">
+            <label>Effort<input type="number" id="hiitWork" value="30" min="5" inputmode="numeric" /><span>s</span></label>
+            <label>Repos<input type="number" id="hiitRest" value="15" min="0" inputmode="numeric" /><span>s</span></label>
+            <label>Tours<input type="number" id="hiitRounds" value="8" min="1" inputmode="numeric" /><span>×</span></label>
+          </div>
+          <div class="timer-controls">
+            <button class="btn-ghost" id="timerStart">▶ Démarrer</button>
+            <button class="btn-ghost" id="timerReset">↺ Reset</button>
+          </div>
+        </div>
       </section>
 
       <!-- MENTAL -->
@@ -209,6 +226,13 @@
         <div id="photoGallery" class="photo-gallery"></div>
 
         <div class="danger-zone">
+          <h2 class="section-title">Sauvegarde 💾</h2>
+          <p class="hint">Exporte toutes tes données dans un fichier (poids, habitudes, photos, badges…) pour les sauvegarder ou changer d'appareil.</p>
+          <div class="backup-row">
+            <button class="btn-ghost" id="exportBtn">⬇ Exporter mes données</button>
+            <button class="btn-ghost" id="importBtn">⬆ Importer</button>
+          </div>
+          <input type="file" id="importInput" accept="application/json,.json" hidden />
           <button class="btn-danger" id="resetBtn">Réinitialiser toutes mes données</button>
         </div>
       </section>
